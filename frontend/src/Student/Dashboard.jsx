@@ -1,12 +1,127 @@
-import React from "react";
-import { Eye, ClipboardEdit, Zap, Clock, CheckCircle, MapPin } from "lucide-react";
+import React, { useEffect, useState, useRef } from "react";
+import axios from "axios";
+import { Eye, ClipboardEdit, Zap, Clock, Camera } from "lucide-react";
 
 const Dashboard = () => {
+  const [student, setStudent] = useState(null);
+  const [showCamera, setShowCamera] = useState(false);
+  const [step, setStep] = useState(1); // 1 = front, 2 = right/left, 3 = up/down
+  const [capturedImages, setCapturedImages] = useState([]);
+
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    const fetchStudent = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
+        const res = await axios.get("http://localhost:8081/api/student/dashboard", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        setStudent(res.data);
+      } catch (err) {
+        console.error("Error fetching student:", err);
+      }
+    };
+
+    fetchStudent();
+  }, []);
+
+  // Start Camera
+  const startCamera = async () => {
+    setShowCamera(true);
+    setStep(1);
+    setCapturedImages([]);
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+      });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (err) {
+      console.error("Camera Access Denied:", err);
+      alert("Camera permission required!");
+    }
+  };
+
+  // Capture image for each step
+  const captureImage = async () => {
+    const canvas = canvasRef.current;
+    const video = videoRef.current;
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    const context = canvas.getContext("2d");
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    const imageData = canvas.toDataURL("image/jpeg");
+
+    // Add image to array
+    const updatedImages = [...capturedImages, imageData];
+    setCapturedImages(updatedImages);
+
+    // If last step → send images to backend
+    if (step === 3) {
+      submitAllImages(updatedImages);
+      return;
+    }
+
+    // Move to next step
+    setStep(step + 1);
+  };
+
+  // Send all 3 photos to backend
+  const submitAllImages = async (images) => {
+    try {
+      const token = localStorage.getItem("token");
+
+      const res = await axios.post(
+        "http://localhost:8081/api/student/markAttendance",
+        { images: images },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      alert(res.data.message || "Attendance marked successfully!");
+      stopCamera();
+    } catch (err) {
+      console.error("Error uploading image:", err);
+      alert("Face recognition failed!");
+    }
+  };
+
+  // Stop Camera
+  const stopCamera = () => {
+    setShowCamera(false);
+    setStep(1);
+
+    const stream = videoRef.current?.srcObject;
+    if (stream) {
+      stream.getTracks().forEach((track) => track.stop());
+    }
+  };
+
+  // Step Instructions
+  const getInstruction = () => {
+    if (step === 1) return "Look Straight at the Camera";
+    if (step === 2) return "Turn your Face Slightly Right or Left";
+    if (step === 3) return "Move Your Face Slightly Up or Down";
+  };
+
   return (
     <div className="p-8 space-y-8">
       {/* WELCOME BANNER */}
       <div className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-2xl shadow-md p-8">
-        <h2 className="text-3xl font-extrabold">Welcome Back, Alex!</h2>
+        <h2 className="text-3xl font-extrabold">
+          Welcome Back, {student ? student.username : "..."}!
+        </h2>
         <p className="text-white/80 mt-2 text-lg">
           Your attendance matters. Stay on track!
         </p>
@@ -18,32 +133,18 @@ const Dashboard = () => {
           Attendance Key Metrics
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-          {/* Attendance Rate */}
           <div className="bg-indigo-50 p-6 rounded-xl shadow-sm border border-indigo-100">
-            <div className="flex justify-between items-center">
-              <p className="text-sm text-gray-600">
-                Overall Attendance (Target: 75%)
-              </p>
-              <Eye className="text-indigo-400" />
-            </div>
+            <p className="text-sm text-gray-600">Overall Attendance</p>
             <h2 className="text-3xl font-bold text-indigo-900 mt-2">85.0%</h2>
           </div>
 
-          {/* Absent Days */}
           <div className="bg-red-50 p-6 rounded-xl shadow-sm border border-red-100">
-            <div className="flex justify-between items-center">
-              <p className="text-sm text-red-600">Absent Days This Month</p>
-              <ClipboardEdit className="text-red-400" />
-            </div>
+            <p className="text-sm text-red-600">Absent Days</p>
             <h2 className="text-3xl font-bold text-red-700 mt-2">4 Days</h2>
           </div>
 
-          {/* Absences Allowed */}
           <div className="bg-green-50 p-6 rounded-xl shadow-sm border border-green-100">
-            <div className="flex justify-between items-center">
-              <p className="text-sm text-green-600">Absences Allowed (Max)</p>
-              <Zap className="text-green-400" />
-            </div>
+            <p className="text-sm text-green-600">Absences Allowed</p>
             <h2 className="text-3xl font-bold text-green-700 mt-2">13 Classes</h2>
           </div>
         </div>
@@ -56,7 +157,6 @@ const Dashboard = () => {
         </h3>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* CURRENT CLASS CARD */}
           <div className="bg-white rounded-2xl shadow-md p-6 border border-gray-100">
             <div className="flex items-center mb-3">
               <Clock className="text-indigo-500 mr-2" />
@@ -65,68 +165,54 @@ const Dashboard = () => {
               </h4>
             </div>
 
-            <div className="border-t border-gray-200 my-3"></div>
-
             <h2 className="text-2xl font-bold text-indigo-700 mb-2">
               Differential Equations (MTH 301)
             </h2>
 
             <p className="text-sm text-gray-700">
-              <span className="font-semibold text-gray-800">Time:</span> 10:00 AM – 11:30 AM
-            </p>
-            <p className="text-sm text-gray-700 mb-4">
-              <span className="font-semibold text-gray-800">Location:</span> Building A, Room 305
+              <span className="font-semibold">Time:</span> 10:00 AM – 11:30 AM
             </p>
 
-            <button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl transition-all">
-              Mark Attendance (Face ID + Location Required)
+            <button
+              onClick={startCamera}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl transition-all flex justify-center items-center gap-2"
+            >
+              <Camera size={20} />
+              Mark Attendance (Face ID)
             </button>
-
-            <p className="text-xs text-gray-500 text-center mt-2">
-              Submission requires physical presence and successful Face ID match.
-            </p>
-          </div>
-
-          {/* TODAY'S ACTIVITY CARD */}
-          <div className="bg-white rounded-2xl shadow-md p-6 border border-gray-100">
-            <div className="flex items-center mb-3">
-              <Clock className="text-indigo-500 mr-2" />
-              <h4 className="text-lg font-semibold text-gray-900">
-                Today's Activity
-              </h4>
-            </div>
-
-            <div className="border-t border-gray-200 my-3"></div>
-
-            {/* Activity List */}
-            <div className="space-y-4">
-              <div className="flex justify-between items-center border-b border-gray-100 pb-2">
-                <div>
-                  <p className="text-gray-800 font-semibold">Calculus I</p>
-                  <p className="text-sm text-gray-500">8:00 AM</p>
-                </div>
-                <span className="text-green-600 font-medium">Present</span>
-              </div>
-
-              <div className="flex justify-between items-center border-b border-gray-100 pb-2">
-                <div>
-                  <p className="text-gray-800 font-semibold">Intro to History</p>
-                  <p className="text-sm text-gray-500">11:00 AM</p>
-                </div>
-                <span className="text-yellow-600 font-medium">Late</span>
-              </div>
-
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="text-gray-800 font-semibold">Computer Science</p>
-                  <p className="text-sm text-gray-500">2:00 PM</p>
-                </div>
-                <span className="text-gray-600 font-medium">Pending</span>
-              </div>
-            </div>
           </div>
         </div>
       </div>
+
+      {/* CAMERA POPUP */}
+      {showCamera && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-50">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-[90%] md:w-[450px] text-center">
+            <h2 className="text-xl font-bold mb-3">Face Recognition Step {step}/3</h2>
+            <p className="text-gray-600 mb-4">{getInstruction()}</p>
+
+            <video ref={videoRef} autoPlay className="w-full rounded-lg shadow-md" />
+
+            <canvas ref={canvasRef} className="hidden"></canvas>
+
+            <div className="mt-5 flex justify-between">
+              <button
+                onClick={stopCamera}
+                className="px-5 py-2 bg-gray-400 text-white rounded-lg hover:bg-gray-500"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={captureImage}
+                className="px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+              >
+                {step === 3 ? "Submit" : "Capture"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

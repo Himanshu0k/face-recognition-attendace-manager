@@ -1,11 +1,13 @@
 import React, { useState } from "react";
+import axios from "axios";
 import { ArrowLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import Dashboard from "../Student/Dashboard"; // Dashboard import
 
 /* ==================== INFO PANEL (GIF) ==================== */
 const InfoPanel = ({ view }) => {
   const isLogin = view === "login";
 
-  // Dynamic content for login/signup panels
   const content = isLogin
     ? {
         title: "Welcome Back!",
@@ -43,31 +45,55 @@ const InfoPanel = ({ view }) => {
 };
 
 /* ==================== FORM PANEL ==================== */
-const FormPanel = ({ view, setView, handleFormSubmit }) => {
+const FormPanel = ({
+  view,
+  setView,
+  handleFormSubmit,
+  formData,
+  setFormData,
+  isLoading,
+}) => {
   const isLogin = view === "login";
   const isSignup = view === "signup";
   const isForgotPassword = view === "forgotPassword";
 
-  // Blue for login | Coral for signup
   const inputClass =
     "mt-1 block w-full px-4 py-3 border border-[#BFD4FF] rounded-lg shadow-sm bg-[#F5F8FF] focus:outline-none focus:ring-2 focus:ring-[#80ABFE] focus:border-[#80ABFE] transition-all";
 
   const signupInputClass =
     "mt-1 block w-full px-4 py-3 border border-[#F3B1B1] rounded-lg shadow-sm bg-[#FFF5F5] focus:outline-none focus:ring-2 focus:ring-[#E48989] focus:border-[#E48989] transition-all";
 
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
   const renderLoginForm = () => (
-    <form className="space-y-6" onSubmit={handleFormSubmit}>
+    <form className="space-y-6" onSubmit={(e) => handleFormSubmit(e, "login")}>
       <div>
         <label className="block text-sm font-medium text-gray-700">
-          Username / ID
+          Username
         </label>
-        <input type="text" required className={inputClass} />
+        <input
+          type="text"
+          name="username"
+          required
+          value={formData.username || ""}
+          onChange={handleChange}
+          className={inputClass}
+        />
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700">
           Password
         </label>
-        <input type="password" required className={inputClass} />
+        <input
+          type="password"
+          name="password"
+          required
+          value={formData.password || ""}
+          onChange={handleChange}
+          className={inputClass}
+        />
       </div>
       <div className="flex items-center justify-end text-sm">
         <a
@@ -83,42 +109,68 @@ const FormPanel = ({ view, setView, handleFormSubmit }) => {
       </div>
       <button
         type="submit"
+        disabled={isLoading}
         className="w-full py-3 rounded-lg shadow-md text-lg font-semibold text-white bg-gradient-to-r from-[#80ABFE] to-[#5C8EF7] hover:from-[#5C8EF7] hover:to-[#80ABFE] transition-all transform hover:scale-[1.02]"
       >
-        Sign In
+        {isLoading ? "Signing In..." : "Sign In"}
       </button>
     </form>
   );
 
   const renderSignupForm = () => (
-    <form className="space-y-6" onSubmit={handleFormSubmit}>
+    <form className="space-y-6" onSubmit={(e) => handleFormSubmit(e, "signup")}>
       <div>
         <label className="block text-sm font-medium text-gray-700">
           Username
         </label>
-        <input type="text" required className={signupInputClass} />
+        <input
+          type="text"
+          name="username"
+          required
+          value={formData.username || ""}
+          onChange={handleChange}
+          className={signupInputClass}
+        />
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700">Email</label>
-        <input type="email" required className={signupInputClass} />
+        <input
+          type="email"
+          name="email"
+          required
+          value={formData.email || ""}
+          onChange={handleChange}
+          className={signupInputClass}
+        />
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700">
           Password
         </label>
-        <input type="password" required className={signupInputClass} />
+        <input
+          type="password"
+          name="password"
+          required
+          value={formData.password || ""}
+          onChange={handleChange}
+          className={signupInputClass}
+        />
       </div>
       <button
         type="submit"
+        disabled={isLoading}
         className="w-full py-3 rounded-lg shadow-md text-lg font-semibold text-white bg-gradient-to-r from-[#FAD0C4] to-[#E48989] hover:from-[#E48989] hover:to-[#FAD0C4] transition-all transform hover:scale-[1.02]"
       >
-        Create Account
+        {isLoading ? "Creating Account..." : "Create Account"}
       </button>
     </form>
   );
 
   const renderForgotPasswordForm = () => (
-    <form className="space-y-6" onSubmit={handleFormSubmit}>
+    <form
+      className="space-y-6"
+      onSubmit={(e) => handleFormSubmit(e, "forgotPassword")}
+    >
       <h2 className="text-2xl font-bold text-gray-900 text-center mb-6">
         Reset Password
       </h2>
@@ -129,13 +181,21 @@ const FormPanel = ({ view, setView, handleFormSubmit }) => {
         <label className="block text-sm font-medium text-gray-700">
           ID / Email
         </label>
-        <input type="text" required className={inputClass} />
+        <input
+          type="text"
+          name="email"
+          required
+          value={formData.email || ""}
+          onChange={handleChange}
+          className={inputClass}
+        />
       </div>
       <button
         type="submit"
+        disabled={isLoading}
         className="w-full py-3 rounded-lg shadow-md text-lg font-semibold text-white bg-[#80ABFE] hover:bg-[#5C8EF7] transition-all transform hover:scale-[1.02]"
       >
-        Send Reset Link
+        {isLoading ? "Sending..." : "Send Reset Link"}
       </button>
       <div className="mt-4 text-center">
         <a
@@ -197,11 +257,52 @@ const FormPanel = ({ view, setView, handleFormSubmit }) => {
 /* ==================== MAIN COMPONENT ==================== */
 const StudentLogin = () => {
   const [view, setView] = useState("login");
+  const [formData, setFormData] = useState({});
+  const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
 
-  const handleFormSubmit = (e) => {
+  const handleFormSubmit = async (e, action) => {
     e.preventDefault();
-    console.log(`${view} attempted.`);
-    if (view === "signup") setView("login");
+    setIsLoading(true);
+
+    try {
+      if (action === "signup") {
+        // Signup and auto-login
+        await axios.post("http://localhost:8081/api/auth/signup", formData);
+
+        const loginResponse = await axios.post(
+          "http://localhost:8081/api/auth/login",
+          {
+            username: formData.username,
+            password: formData.password,
+          }
+        );
+
+        localStorage.setItem("token", loginResponse.data.token);
+        alert("Signup successful! Redirecting to dashboard...");
+        navigate("../Student/Dashboard");
+      } else if (action === "login") {
+        const response = await axios.post(
+          "http://localhost:8081/api/auth/login",
+          formData
+        );
+        localStorage.setItem("token", response.data.token);
+        alert("Login successful!");
+        navigate("../Student/Dashboard");
+      } else if (action === "forgotPassword") {
+        await axios.post("http://localhost:8081/api/auth/forgot-password", {
+          email: formData.email,
+        });
+        alert("Password reset link sent!");
+        setView("login");
+      }
+
+      setFormData({});
+    } catch (error) {
+      alert(error.response?.data?.message || "Something went wrong!");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -217,6 +318,9 @@ const StudentLogin = () => {
               view={view}
               setView={setView}
               handleFormSubmit={handleFormSubmit}
+              formData={formData}
+              setFormData={setFormData}
+              isLoading={isLoading}
             />
           </div>
           <div className="hidden md:block md:w-1/2">

@@ -1,8 +1,11 @@
 import React, { useState } from "react";
 import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-router-dom";
+
 import StudentLogin from "./Login/StudentLogin";
 import TeacherLogin from "./Login/TeacherLogin";
 import AdminLogin from "./Login/AdminLogin";
+
+/* ------- student ------- */
 import Sidebar from "./Student/Sidebar";
 import Dashboard from "./Student/Dashboard";
 import Timetable from "./Student/Timetable";
@@ -10,6 +13,11 @@ import AttendanceHistory from "./Student/AttendanceHistory";
 import AbsenceRequest from "./Student/AbsenceRequest";
 import FaceIdSettings from "./Student/FaceIdSettings";
 import AccountDetails from "./Student/AccountDetails";
+import TeacherPortal from "./TeacherPortal";
+
+/* -------- teacher -------- */
+import TeacherSidebar from "./Teacher/TeacherSidebar";
+import TeacherDashboard from "./Teacher/TeacherDashboard";
 
 /* ---------------- DOODLES ---------------- */
 const StudentDoodle = () => (
@@ -208,6 +216,33 @@ const App = () => {
             </div>
           }
         />
+        {/* Student Portal Layout (with sidebar) */}
+        <Route
+          path="/teacher/*"
+          element={
+            <div className="flex min-h-screen bg-white">
+              {/* Sidebar */}
+              <TeacherSidebar
+                isSidebarOpen={isSidebarOpen}
+                setIsSidebarOpen={setIsSidebarOpen}
+                handleLogout={handleLogout}
+              />
+
+              {/* Main content area */}
+              <div className="flex-1 p-8 overflow-y-auto">
+                <Routes>
+                  <Route path="dashboard" element={<TeacherDashboard />} />
+                  <Route path="timetable" element={<Timetable />} />
+                  <Route path="attendance-history" element={<AttendanceHistory />} />
+                  <Route path="absence-request" element={<AbsenceRequest />} />
+                  <Route path="face-id-settings" element={<FaceIdSettings />} />
+                  <Route path="account-details" element={<AccountDetails />} />
+                </Routes>
+              </div>
+            </div>
+          }
+        />
+        <Route path="/teacher" element={<TeacherPortal />} />
       </Routes>
     </Router>
   );
